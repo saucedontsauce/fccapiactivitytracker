@@ -6,51 +6,28 @@ const fs = require('fs');
 require('dotenv').config()
 
 let rawdata = fs.readFileSync('usersdata')
-var jsondata = JSON.parse(atob(rawdata))
+let jsondata;
+if(rawdata.toString() === ""){
+  jsondata = {"users":{}}
+} else {
+  jsondata = JSON.parse(atob(rawdata))
+
+}
 
 app.use(cors())
 app.use(express.static('public'))
 app.use(bodyParser.urlencoded({ "extended": true }))
 
-
+// display webpage
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/views/index.html')
 });
-
 // get full stored json
 app.get('/api/json', function (req, res) {
   res.json(jsondata)
 })
 
-// get single user whole
-app.get('/api/users/:id', function (req, res) {
-  let id = req.params.id;
-  console.log(`Looking for: ${id}`)
-  let user = { "error": "User not found." }
-  for (const idkey in jsondata.users) {
-    console.log(idkey)
-    if (idkey === id) {
-      console.log('match')
-      user = jsondata.users[idkey]
-    }
-  }
-  res.json(user)
-})
-// get single user all logs + count 
-app.get('/api/users/:id/logs',(req,res)=>{
-  let id = req.params.id;
-  console.log(`Looking for: ${id}`)
-  let user = { "error": "User not found." }
-  for (const idkey in jsondata.users) {
-    if (idkey === id) {
-      console.log('match')
-      user = jsondata.users[idkey]
-    }
-  }
-  
-  let userdata = {"_id":user.id,"username":user.id,"count":user.log.length,"log":user.log}
-  res.json(userdata)
-})
+
 
 // make user
 app.post('/api/users', function (req, res) {
@@ -74,36 +51,97 @@ app.post('/api/users', function (req, res) {
 
 
 })
+
+
+
 // get all users
 app.get('/api/users', function (req, res) {
   // return all
   let tmparr = []
   let data = { ...jsondata }
   for (const idkey in jsondata.users) {
-    tmparr.push({"_id":data.users[idkey].id,"username":data.users[idkey].username,"log":data.users[idkey].log})
+    tmparr.push({ "_id": data.users[idkey].id, "username": data.users[idkey].username, "log": data.users[idkey].log })
   }
   res.send(tmparr)
 })
+
+
+
+// get single user whole
+app.get('/api/users/:_id', function (req, res) {
+  let id = req.params._id;
+  console.log(`Looking for: ${id}`)
+  let user = { "error": "User not found." }
+  for (const idkey in jsondata.users) {
+    console.log(idkey)
+    if (idkey === id) {
+      console.log('match')
+      user = jsondata.users[idkey]
+    }
+  }
+  res.json(user)
+})
+// get single user with activities
+app.get('/api/users/:_id/logs', (req, res) => {
+  let id = req.params._id;
+  console.log(`Looking for: ${id}`)
+  let user = { "error": "User not found." }
+  for (const idkey in jsondata.users) {
+    if (idkey === id) {
+      console.log('match')
+      user = jsondata.users[idkey]
+    }
+  }
+
+  let userdata = { "_id": user.id, "username": user.username, "log": user.log }
+  res.json(userdata)
+})
+
+// get single user all logs + count 
+app.get('/api/users/:_id/exercises', (req, res) => {
+  let id = req.params._id;
+  console.log(`Looking for: ${id}`)
+  let user = { "error": "User not found." }
+  let logarr = []
+  for (const idkey in jsondata.users) {
+    if (idkey === id) {
+      console.log('match')
+      user = jsondata.users[idkey]
+      for(let i =0;i<user.log.length;i++){
+        let itm = user.log[i]
+        console.log('item:',user.log[i])
+
+        logarr.push({"description": String(itm.description), "username":itm.username,"duration": Number(itm.duration), "date":itm.date.toString() })
+      }
+    }
+  }
+
+  let userdata = { "_id": user.id, "username": user.id, "count": user.log.length, "log": user.log }
+  res.json(userdata)
+})
+
+
+
+
 // create new activity
-app.post('/api/users/:id/exercises', function (req, res) {
+app.post('/api/users/:_id/exercises', function (req, res) {
   let { description, duration, date } = req.body;
   if (date) {
-    date.split('-')
-    date = new Date(date[0], date[1], date[2])
+    date = new Date(date)
   } else {
     date = new Date().toDateString()
   }
-  const id = req.params.id.toString()
+  const id = req.params._id.toString()
   console.log('id', id)
   for (let key in jsondata.users) {
     if (key === id) {
-      jsondata.users[id].log = [...jsondata.users[id].log, { "description": description, "duration": duration, "date": date }]
+      jsondata.users[id].log = [...jsondata.users[id].log, { "description": description.toString(), "duration": Math.floor(duration), "date": date }]
       try {
         fs.writeFile('usersdata', btoa(JSON.stringify(jsondata)), (err) => {
           if (err) {
             res.status(500).send(err)
           } else {
-            res.send(jsondata.users[id])
+            res.json(jsondata.users[key])
           }
         })
       } catch (err) {
